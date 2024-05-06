@@ -1,0 +1,286 @@
+<?php
+// Validasi Form Isian
+$error_message = '';
+
+// Pastikan ada ID pesanan yang dikirimkan
+if (empty($_GET["id_pemesanan"])) {
+    $error_message = "ID pesanan tidak valid.";
+} else {
+    // Hubungkan ke database
+    include 'koneksi.php'; // Sesuaikan dengan file koneksi database Anda
+
+    // Ambil data dari URL
+    $id_pemesanan = $_GET["id_pemesanan"];
+
+    // Query untuk mendapatkan data pemesanan
+    $sql_pemesanan = "SELECT * FROM pemesanan WHERE id = $id_pemesanan";
+    $result_pemesanan = $conn->query($sql_pemesanan);
+
+    if ($result_pemesanan->num_rows > 0) {
+        $row_pemesanan = $result_pemesanan->fetch_assoc();
+
+        // Ambil data dari database
+        $nama_pemesan = $row_pemesanan['nama_pemesan'];
+        $tanggal_pesan = $row_pemesanan['tanggal_pesan'];
+        $paket_id = $row_pemesanan['paket_id'];
+        $durasi = $row_pemesanan['durasi'];
+        $jumlah_peserta = $row_pemesanan['jumlah_peserta'];
+        $penginapan = $row_pemesanan['penginapan'];
+        $transportasi = $row_pemesanan['transportasi'];
+        $makanan = $row_pemesanan['makanan'];
+        $harga_paket = $row_pemesanan['harga_paket'];
+        $harga_layanan = $row_pemesanan['harga_layanan'];
+        $jumlah_tagihan = $row_pemesanan['jumlah_tagihan'];
+    } else {
+        $error_message = "Data pemesanan tidak ditemukan.";
+    }
+
+    // Jika form disubmit
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        // Ambil data dari form
+        $nama_pemesan = $_POST['nama_pemesan'];
+        $tanggal_pesan = $_POST['tanggal_pesan'];
+        $paket_id = $_POST['paket_id'];
+        $durasi = $_POST['durasi'];
+        $jumlah_peserta = $_POST['jumlah_peserta'];
+        $penginapan = isset($_POST['layanan']) && in_array('penginapan', $_POST['layanan']) ? 1 : 0;
+        $transportasi = isset($_POST['layanan']) && in_array('transportasi', $_POST['layanan']) ? 1 : 0;
+        $makanan = isset($_POST['layanan']) && in_array('makanan', $_POST['layanan']) ? 1 : 0;
+
+        // Query untuk mendapatkan harga paket
+        $sql_paket = "SELECT harga FROM paket WHERE id = $paket_id";
+        $result_paket = $conn->query($sql_paket);
+
+        if (!$result_paket) {
+            $error_message = "Error: " . $conn->error;
+        } else {
+            $row_paket = $result_paket->fetch_assoc();
+            $harga_paket = $row_paket['harga'];
+
+            // Perhitungan harga layanan tambahan
+            $harga_layanan = ($penginapan ? 1000000 : 0) + ($transportasi ? 1200000 : 0) + ($makanan ? 500000 : 0);
+
+            // Perhitungan total tagihan
+            $jumlah_tagihan = $durasi * $jumlah_peserta * ($harga_paket + $harga_layanan);
+
+            // Query untuk memperbarui data pemesanan di database
+            $sql = "UPDATE pemesanan SET nama_pemesan = '$nama_pemesan', tanggal_pesan = '$tanggal_pesan', paket_id = '$paket_id', durasi = '$durasi', jumlah_peserta = '$jumlah_peserta', penginapan = '$penginapan', transportasi = '$transportasi', makanan = '$makanan', harga_paket = '$harga_paket', harga_layanan = '$harga_layanan', jumlah_tagihan = '$jumlah_tagihan' WHERE id = '$id_pemesanan'";
+
+            if ($conn->query($sql) === TRUE) {
+                header("Location: pesanantampil.php?id=" . $id_pemesanan);
+                exit;
+            } else {
+                $error_message = "Error: " . $sql . "<br>" . $conn->error;
+            }
+        }
+    }
+
+    // Isi nilai input form dengan data yang sudah ada
+    if ($_SERVER["REQUEST_METHOD"] == "GET") {
+        $nama_pemesan_value = $nama_pemesan;
+        $tanggal_pesan_value = $tanggal_pesan;
+        $paket_id_value = $paket_id;
+        $durasi_value = $durasi;
+        $jumlah_peserta_value = $jumlah_peserta;
+        $penginapan_checked = $penginapan ? "checked" : "";
+        $transportasi_checked = $transportasi ? "checked" : "";
+        $makanan_checked = $makanan ? "checked" : "";
+    }
+
+    // Tutup koneksi database
+    $conn->close();
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRAVEL.</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css">
+    <link rel="shortcut icon" href="./assets/compiled/svg/favicon.svg" type="image/x-icon">
+    <link rel="stylesheet" href="./assets/compiled/css/app.css">
+    <link rel="stylesheet" href="./assets/compiled/css/app-dark.css">
+</head>
+<body>
+    <div id="app">
+        <div id="main">
+            <header class="mb-3">
+                <a href="#" class="burger-btn d-block d-xl-none">
+                    <i class="bi bi-justify fs-3"></i>
+                </a>
+            </header>
+            <?php include("layout/sidebar_admin.php"); ?>
+            <div class="page-heading">
+                <div class="page-title">
+                    <div class="row">
+                        <div class="col-12 col-md-6 order-md-1 order-last">
+                            <h3>Data Pesanan</h3>
+                        </div>
+                        <div class="col-12 col-md-6 order-md-2 order-first">
+                            <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
+                                <ol class="breadcrumb">
+                                    <li class="breadcrumb-item active"><a href="pesanantampil.php">Data Paket Wisata</a></li>
+                                    <li class="breadcrumb-item" aria-current="page">Tambah Paket Wisata</li>
+                                </ol>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+                <section id="multiple-column-form">
+                    <div class="row match-height">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Edit Paket Wisata</h4>
+                                </div>
+                                <div class="card-content">
+                                    <div class="card-body">
+                                        <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"] . "?id_pemesanan=$id_pemesanan"); ?>">
+                                            <input type="hidden" name="id_pemesanan" value="<?php echo $id_pemesanan; ?>">
+                                            <div class="row">
+                                                <div class="col-md-6 col-12">
+                                                    <div class="form-group">
+                                                        <label for="nama_pemesan">Nama</label>
+                                                        <input type="text" id="nama_pemesan" class="form-control" placeholder="Nama" name="nama_pemesan" value="<?php echo isset($nama_pemesan_value) ? $nama_pemesan_value : ''; ?>" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 col-12">
+                                                    <div class="form-group">
+                                                        <label for="tanggal_pesan">Tanggal Pesan</label>
+                                                        <input type="date" id="tanggal_pesan" class="form-control" name="tanggal_pesan" value="<?php echo isset($tanggal_pesan_value) ? $tanggal_pesan_value : ''; ?>" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 col-12">
+                                                    <div class="form-group">
+                                                        <label for="paket_id">Paket Wisata</label>
+                                                        <select id="paket_id" class="form-control" name="paket_id" style="border-radius: 50px;" required>
+                                                            <option value="">-- Pilih Paket Wisata --</option>
+                                                            <?php
+                                                            // Database connection details
+                                                            require_once 'koneksi.php';
+
+                                                            // Query to retrieve package names from the 'paket' table
+                                                            $sql = "SELECT nama_paket FROM paket";
+                                                            $result = $conn->query($sql);
+
+                                                            // Check if there are any results
+                                                            if ($result->num_rows > 0) {
+                                                                // Loop through each row and create an option element
+                                                                while ($row = $result->fetch_assoc()) {
+                                                                    $packageName = $row["nama_paket"];
+                                                                    $selected = ($packageName == $paket_id_value) ? 'selected' : '';
+                                                                    echo "<option value='$packageName' $selected>$packageName</option>";
+                                                                }
+                                                            } else {
+                                                                echo "<option value=''>No packages found</option>";
+                                                            }
+
+                                                            // Close the database connection
+                                                            $conn->close();
+                                                            ?>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 col-12">
+                                                    <div class="form-group">
+                                                        <label for="durasi">Durasi Wisata (hari)</label>
+                                                        <input type="number" id="durasi" class="form-control" name="durasi" placeholder="Durasi Wisata (hari)" value="<?php echo isset($durasi_value) ? $durasi_value : ''; ?>" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 col-12">
+                                                    <div class="form-group">
+                                                        <label for="jumlah_peserta">Jumlah Peserta</label>
+                                                        <input type="number" id="jumlah_peserta" class="form-control" name="jumlah_peserta" placeholder="Jumlah Peserta" value="<?php echo isset($jumlah_peserta_value) ? $jumlah_peserta_value : ''; ?>" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 col-12">
+                                                    <div class="form-group">
+                                                        <div class="form-check">
+                                                            <input type="checkbox" class="form-check-input" id="penginapan" name="layanan[]" value="penginapan" <?php echo isset($penginapan_checked) ? $penginapan_checked : ''; ?>>
+                                                            <label class="form-check-label" for="penginapan">Penginapan (Rp 1.000.000)</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input type="checkbox" class="form-check-input" id="transportasi" name="layanan[]" value="transportasi" <?php echo isset($transportasi_checked) ? $transportasi_checked : ''; ?>>
+                                                            <label class="form-check-label" for="transportasi">Transportasi (Rp 1.200.000)</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input type="checkbox" class="form-check-input" id="makanan" name="layanan[]" value="makanan" <?php echo isset($makanan_checked) ? $makanan_checked : ''; ?>>
+                                                            <label class="form-check-label" for="makanan">Makanan (Rp 500.000)</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 col-12">
+                                                    <div class="form-group">
+                                                        <label for="harga_paket">Harga Paket Wisata (Rp)</label>
+                                                        <input type="text" class="form-control" name="harga_paket" placeholder="Harga Paket Wisata (Rp)" value="<?php echo isset($harga_paket) ? $harga_paket : ''; ?>" readonly>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="harga_layanan">Harga Layanan Tambahan (Rp)</label>
+                                                        <input type="text" class="form-control" name="harga_layanan" placeholder="Harga Layanan Tambahan (Rp)" value="<?php echo isset($harga_layanan) ? $harga_layanan : ''; ?>" readonly>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="jumlah_tagihan">Jumlah Tagihan (Rp)</label>
+                                                        <input type="text" class="form-control" name="jumlah_tagihan" placeholder="Jumlah Tagihan (Rp)" value="<?php echo isset($jumlah_tagihan) ? $jumlah_tagihan : ''; ?>" readonly>
+                                                    </div>
+                                                    <button type="button" class="btn btn-primary btn-sm" onclick="hitungTagihan()">Hitung</button>
+                                                    <button type="submit" class="btn btn-success btn-sm">Update</button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                          </div>
+                    </div>
+                  </section>
+                </div>
+            <footer>
+                                        <?php include("layout/footer_admin.php"); ?>
+                                    </footer>
+                                    </div>
+                                    </div>
+                                    <script src="assets/static/js/initTheme.js"></script>
+                                    <script src="assets/static/js/components/dark.js"></script>
+                                    <script src="assets/extensions/perfect-scrollbar/perfect-scrollbar.min.js"></script>
+                                    <script src="assets/compiled/js/app.js"></script>
+                                    <script>
+   function hitungTagihan() {
+        // Get the values of the form inputs
+        const durasi = document.querySelector('input[name="durasi"]').value;
+        const jumlahPeserta = document.querySelector('input[name="jumlah_peserta"]').value;
+        const penginapanChecked = document.querySelector('#penginapan').checked;
+        const transportasiChecked = document.querySelector('#transportasi').checked;
+        const makananChecked = document.querySelector('#makanan').checked;
+
+        // Set the base price for the package (you can update this value as needed)
+        let hargaPaket = 100000;
+
+        // Calculate the cost based on the duration and number of participants
+        let hargaPaketTotal = hargaPaket * durasi * jumlahPeserta;
+
+        // Calculate the cost of additional services
+        let hargaLayanan = 0;
+        if (penginapanChecked) {
+            hargaLayanan += 1000000 * durasi * jumlahPeserta;
+        }
+        if (transportasiChecked) {
+            hargaLayanan += 1200000 * jumlahPeserta;
+        }
+        if (makananChecked) {
+            hargaLayanan += 500000 * durasi * jumlahPeserta;
+        }
+
+        // Calculate the total cost
+        const jumlahTagihan = hargaPaketTotal + hargaLayanan;
+
+        // Update the form input fields with the calculated values
+        document.querySelector('input[name="harga_paket"]').value = hargaPaketTotal;
+        document.querySelector('input[name="harga_layanan"]').value = hargaLayanan;
+        document.querySelector('input[name="jumlah_tagihan"]').value = jumlahTagihan;
+    }
+
+</script>
+</body>
+</html>
